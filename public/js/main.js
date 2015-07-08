@@ -40,64 +40,125 @@ function getData(url, callback) {
         callback(null, result);
     }, Math.round(Math.random * 1000));
 }
- 
 /**
  * Ваши изменения ниже
  */
-var requests = ['/countries', '/cities', '/populations'];
-var responses = {};
+ 
+(function(){
+    var requests = ['/countries', '/cities', '/populations'],
+        requestsLength = requests.length;
+    var responses = {};
 
-for (i = 0; i < 3; i++) {
+    for (i = 0; i < requestsLength; i++) {
 
-    (function(request){
+        (function(request){
 
-        var callback = function (error, result) {
-            responses[request] = result;
+            var callback = function (error, result) {
+                responses[request] = result;
 
-            var l = [];
-            for (K in responses)
-              l.push(K);
-              
-        
-            if (l.length == 3) {
+                var l = [];
+                for (K in responses)
+                  l.push(K);
+                  
+            
+                if (l.length == requestsLength) {
 
-                var c = [], cc = [], p = 0;
-                for (i = 0; i < responses['/countries'].length; i++) {
-                    if (responses['/countries'][i].continent === 'Africa') {
-                        c.push(responses['/countries'][i].name);
-                    }
-                }
-     
-                for (i = 0; i < responses['/cities'].length; i++) {
-                    for (j = 0; j < c.length; j++) {
-                        if (responses['/cities'][i].country === c[j]) {
-                            cc.push(responses['/cities'][i].name);
+                    var c = [], cc = [], p = 0;
+                    for (i = 0; i < responses['/countries'].length; i++) {
+                        if (responses['/countries'][i].continent === 'Africa') {
+                            c.push(responses['/countries'][i].name);
                         }
                     }
-                }
-                
-                for (i = 0; i < responses['/populations'].length; i++) {
-                    for (j = 0; j < cc.length; j++) {
-                        if (responses['/populations'][i].name === cc[j]) {
-                            p += responses['/populations'][i].count;
+         
+                    for (i = 0; i < responses['/cities'].length; i++) {
+                        for (j = 0; j < c.length; j++) {
+                            if (responses['/cities'][i].country === c[j]) {
+                                cc.push(responses['/cities'][i].name);
+                            }
                         }
                     }
+                    
+                    for (i = 0; i < responses['/populations'].length; i++) {
+                        for (j = 0; j < cc.length; j++) {
+                            if (responses['/populations'][i].name === cc[j]) {
+                                p += responses['/populations'][i].count;
+                            }
+                        }
+                    }
+
+                    console.log('Total population in African cities: ' + p);
                 }
+            };
+            getData(request, callback);
 
-                console.log('Total population in African cities: ' + p);
-            }
-        };
-        getData(request, callback);
+        })(requests[i]);
+        /*
+           Проблема заключалась в переменной request. Она была объявлена глобально
+           и на момент вызовов функции callback она имела значение, которое её было
+           присвоено в последней итерации цикла.
 
-    })(requests[i]);
+           Решение: надо прокинуть для каждого вызова функции свое значение переменной request,
+           для этого обернем код цикла в немедленно вызываемую функцию, тем самым сохраним переменную 
+           в замыкании.
+
+           В javascript функции являются объектами.Как еще один вариант можно было свойству 
+           callback.request присвоить значение request[i] и уже внутри функции обращаться к этому свойству.
+        */
+    }
+    //todo
     /*
-       Проблема заключалась в переменной request. Она была объявлена глобально
-       и на момент вызовов функции callback она имела значение, которое её было
-       присвоено в последней итерации цикла.
+    1 Пункт
+    1)Возможно ли оптимизировать код.
+    2) ...
 
-       Решение: надо прокинуть для каждого вызова функции свое значение переменной request,
-       для этого обернем код цикла в немедленно вызываемую функцию, тем самым сохраним переменную 
-       в замыкании.
+    2 Пункт
+    1) Написать код взаимодействия с пользователем более модульней = )
+    2) Вместо alert, prompt  сделать нормальные popup'ы
+    3) Придумать что делать с недостающии городами - возможно парнить wiki и отдавать инфу.
+    4) Спрашивать на входе вы хотите узнать про город или страну?
+    
+    Общие
+    Собирать все в один js файл.
+
     */
 
-}
+    var button = document.getElementsByClassName('button')[0];
+
+    App.utils.on(button, 'click', function(){
+    var data = prompt('Введите страну или город из списка на латинице', ''),
+        found = false;
+    if( !(data === null || data === '' )){
+        for(var i = 0, countriesLength = responses['/cities'].length; i < countriesLength; i++){
+           for( var k in responses['/cities'][i]){
+              if( (data === responses['/cities'][i][k]) && k === 'name' ){
+                alert('Population in '+ data + ' '+ responses['/populations'][i]['count'] );
+                found = true;
+              }
+           }
+        }
+
+        if(!found){
+            var requestAPI = App.utils.getXMLHttpRequest();
+            requestAPI.open('GET', 'https://restcountries.eu/rest/v1/name/'+data , true);
+            requestAPI.onreadystatechange = function(){
+               if(requestAPI.readyState != 4) return;
+               var dataFromAPI = JSON.parse(requestAPI.responseText)
+               if(dataFromAPI.status!= 404){
+                 alert('Population in ' +data + ': '+ dataFromAPI[0].population );
+               }
+               else{
+                 alert('Ошибка : '+dataFromAPI.status+' - '+dataFromAPI.message);
+               }
+
+            }
+            requestAPI.send(null);
+
+        }
+
+    }else{
+        console.log('Вы не чего не ввели');
+    }
+
+
+    });
+})();
