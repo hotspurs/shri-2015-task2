@@ -26,6 +26,7 @@ gulp.task('js', function () {
 
 gulp.task('watch', function () {
   gulp.watch(['./www/*.html'], ['html']);
+  gulp.watch(['./www/public/js/main.js','./www/public/js/utils.js' ], ['js']);
 });
 
 gulp.task('default', ['js','connect', 'watch']);

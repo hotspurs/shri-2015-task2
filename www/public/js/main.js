@@ -46,17 +46,15 @@ function getData(url, callback) {
  
 (function(){
     var requests = ['/countries', '/cities', '/populations'],
-        requestsLength = requests.length;
-    var responses = {};
+        requestsLength = requests.length,
+        responses = {};
 
-    for (i = 0; i < requestsLength; i++) {
-
-        (function(request){
-
+        requests.forEach(function(request){
             var callback = function (error, result) {
                 responses[request] = result;
 
-                var l = [];
+                var l = [],
+                    K;
                 for (K in responses)
                   l.push(K);
                   
@@ -92,16 +90,18 @@ function getData(url, callback) {
 
             getData(request, callback);
 
-        })(requests[i]);
+        });
         /*
             Проблема заключалась в переменной request. Она была объявлена глобально
             и на момент вызовов функции callback, имела значение которое её было
             присвоено в последней итерации цикла.
 
             Решение: надо прокинуть для каждого вызова функции callback свое значение переменной request,
-            для этого обернем код цикла в немедленно вызываемую функцию, тем самым сохраним в замыкание уникальное значение для каждого вызова функции callback.
+            для этого можно обернуть код цикла в немедленно вызываемую функцию, тем самым сохранив в замыкание 
+            уникальное значение для каждого вызова функции callback.
 
-            Так же можно заменить цикл for на метод массивов forEach.
+            Более правильный способ для массива requests вызвать метод forEach, который по сути делает тоже 
+            самое(для каждого элемента массива вызывает функцию).
 
             В javascript функции являются объектами. Как еще один вариант можно свойству 
             callback.request присвоить значение request[i] и уже внутри функции обращаться к нему.
@@ -109,45 +109,46 @@ function getData(url, callback) {
             Для того чтобы избежать таких ошибок в будущем, важно понимать асинхронную природу кода и механизм работы областей видимости.
             Стараться избегать глобальных переменных и изолировать код в модули.
         */
-    }
-    
-    var button = document.getElementsByClassName('button')[0];
 
-    App.utils.on(button, 'click', function(){
-    var data = prompt('Введите страну или город из списка на латинице', ''),
+    App.getCountryPopulation = function(country, cb){
+        var request = App.utils.getXMLHttpRequest();
+        request.open('GET', 'https://restcountries.eu/rest/v1/name/'+country , true);
+        request.onreadystatechange = function(){
+           if(request.readyState != 4) return;
+           var dataFromAPI = JSON.parse(request.responseText);
+           if(dataFromAPI.status!= 404) cb(null, dataFromAPI[0].population);
+           else  cb({ status : dataFromAPI.status, message : dataFromAPI.message});
+        };
+        request.send(null);        
+    };
+
+    App.prompt = function(){
+        var userString = prompt('Введите страну или город из списка на латинице', ''),
         found = false;
-    if( !(data === null || data === '' )){
-        for(var i = 0, countriesLength = responses['/cities'].length; i < countriesLength; i++){
-           for( var k in responses['/cities'][i]){
-              if( (data === responses['/cities'][i][k]) && k === 'name' ){
-                alert('Population in '+ data + ' '+ responses['/populations'][i]['count'] );
-                found = true;
-              }
-           }
-        }
-
-        if(!found){
-            var requestAPI = App.utils.getXMLHttpRequest();
-            requestAPI.open('GET', 'https://restcountries.eu/rest/v1/name/'+data , true);
-            requestAPI.onreadystatechange = function(){
-               if(requestAPI.readyState != 4) return;
-               var dataFromAPI = JSON.parse(requestAPI.responseText)
-               if(dataFromAPI.status!= 404){
-                 alert('Population in ' +data + ': '+ dataFromAPI[0].population );
+        if( !(userString === null || userString === '' )){
+            for(var i = 0, countriesLength = responses['/cities'].length; i < countriesLength; i++){
+               for( var k in responses['/cities'][i]){
+                  if( (userString === responses['/cities'][i][k]) && k === 'name' ){
+                    alert('Population in '+ userString + ' '+ responses['/populations'][i].count );
+                    found = true;
+                  }
                }
-               else{
-                 alert('Ошибка : '+dataFromAPI.status+' - '+dataFromAPI.message);
-               }
-
             }
-            requestAPI.send(null);
 
+            if(!found){
+                App.getCountryPopulation(userString, function(err, data){
+                   if(!err) alert('Популяция в ' +userString+ ': '+data);
+                   else alert('Ошибка : '+err.status+' - '+err.message);
+                });
+            }
+
+        }else{
+            alert('Вы не чего не ввели');
         }
 
-    }else{
-        console.log('Вы не чего не ввели');
-    }
 
-
-    });
+    };
+   
+    var button = document.getElementsByClassName('button')[0];
+    App.utils.on(button, 'click', App.prompt );
 })();
