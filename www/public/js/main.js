@@ -143,7 +143,7 @@ function getData(url, callback) {
             }
 
         }else{
-            alert('Вы не чего не ввели');
+            alert('Вы ничего не ввели');
         }
 
 
